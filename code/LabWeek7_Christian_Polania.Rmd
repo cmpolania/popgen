@@ -1,0 +1,183 @@
+---
+title: "Population Genetics Homework - Week 7"
+author: "Christian Polania"
+date: "12/17/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+if (!require("pacman")) install.packages("pacman")
+library(pacman)
+p_load(tidyverse)
+p_load(knitr)
+p_load(devtools)
+p_load(tibble)
+p_load(peRspective)
+p_load(ape)
+p_load(phyclust)
+p_load(RColorBrewer)
+
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=3, fig.height=2)
+```
+
+```{r functions, include=FALSE}
+get_pop <- function(tree, sample_sizes, k) {
+  idx <- as.numeric(gsub("^s(.*)$", "\\1", tree$tip.label))
+  cum <- 0
+  for (i in 1:length(sample_sizes)) {
+    if (idx[k] < cum + sample_sizes[i] + 1) {
+      retval <- i
+      break
+    } else {
+      cum <- cum + sample_sizes[i]
+    }
+  }
+  return(i)
+}
+
+tipcolors <- function(tree, sample_sizes) {
+  my_colors <- brewer.pal(length(sample_sizes), "Set1")
+  colors <- numeric(length(sample_sizes))
+  for (i in 1:sum(sample_sizes)) {
+    colors[i] <- my_colors[get_pop(tree, sample_sizes, i)]
+  }
+  return(colors)
+}
+
+island <- function(sample_sizes, ne_m) {
+  opt_string <- paste("-T -I ", length(sample_sizes), " ", sep = "")
+  for (i in 1:length(sample_sizes)) {
+    opt_string <- paste(opt_string, sample_sizes[i], " ", sep = "")
+  }
+  opt_string <- paste(opt_string, ne_m, "\n", sep = "")
+  ms_out <- ms(nsam = sum(sample_sizes), nreps = 1, opts = opt_string)
+  return(ms_out)  
+}
+
+plot_island <- function(sample_sizes, ne_m) {
+  sample_sizes <- 2*sample_sizes
+  ms_out <- island(sample_sizes, ne_m)
+  ms_tree <- read.tree(text = ms_out)
+  plot(ms_tree, 
+       show.tip.label = FALSE)
+  tiplabels(pch = 19, cex = 0.75, 
+            col = tipcolors(ms_tree, 
+                            sample_sizes))
+  return(branching.times(ms_tree)[1])
+}
+one_d_stepping_stone <- function(n_e, m, n_pops) {
+  stopifnot((m > 0) && (m < 1))
+  m_matrix <- diag(1 - m, nrow = n_pops)
+  m_matrix[1, 2] <- m
+  m_matrix[n_pops, n_pops - 1] <- m
+  for (i in 2:(n_pops - 1)) {
+    m_matrix[i, i - 1] <- m/2
+    m_matrix[i, i + 1] <- m/2
+  }
+  opt_string <- paste("-T -I ", n_pops, " ", sep = "")
+  for (i in 1:n_pops) {
+    opt_string <- paste(opt_string, 2*n_e, " ", sep = "")
+  }
+  opt_string <- paste(opt_string, "-ma", sep = "")
+  m_vector <- 4*n_e*c(t(m_matrix))
+  for ( i in 1:length(m_vector)) {
+    opt_string <- paste(opt_string, " ", m_vector[i], sep = "")
+  }
+  ms_out <- ms(nsam = 2*n_e*n_pops, nreps = 1, opts = opt_string)
+  return(ms_out)
+}
+
+run_simulation <- function(n_pops1, m1, n_reps, rat) {
+  for (n_pops in n_pops1) {
+    for (m in m1) {
+     N_e = 25
+      pop_sizes <- rep(N_e, n_pops)
+     df <- data.frame(Model = NA, Time = NA)
+     for (i in 1:n_reps) {
+        ms_out <- island(pop_sizes, N_e*m)
+        ms_tree <- read.tree(text = ms_out)
+        df <- add_row(df,
+                      Model = "Island",
+                     Time = (4*N_e*n_pops)*branching.times(ms_tree)[1])
+       ms_out <- one_d_stepping_stone(N_e, m, n_pops)
+        ms_tree <- read.tree(text = ms_out)
+        df <- add_row(df,
+                     Model = "1-d",
+                      Time = (4*N_e*n_pops)*branching.times(ms_tree)[1])
+      }
+  df <- filter(df, !is.na(Model))
+  p <- ggplot(df, aes(x = Time, fill = Model)) +
+    geom_histogram(position = "identity", bins = n_reps/10, alpha = 0.4) +
+    ggtitle(paste("n_pops = ", n_pops, ", m = ", m)) +
+    theme_bw()
+  sum <- df %>% group_by(Model) %>%
+    summarize(Median_Time = median(Time))
+  rat <- add_row(rat, island = (sum$Median_Time[2]), step = (sum$Median_Time[1]), ratio = as.double((sum$Median_Time[2])/as.double(sum$Median_Time[1])), n_pops = n_pops, m = m)
+  rat <- drop_na(rat)
+  assign('rat',rat,envir=.GlobalEnv)
+    }
+  }
+}
+```
+
+**Intro**  
+  
+I went ahead and adjusted the run_simulation function so that the output will include time to coalescence (TTC) from both the finite island and 1-d step models (island and step) for a sequence of inputs.  
+   
+The output will include times for both models, and the ratio between them (island/step). When m is variable, n_pop will be set at 10. Conversely, when n_pop is variable m will be set at 0.02.  
+  
+```{r n_pop}
+rat.n <- data.frame(island = NA, step = NA, ratio = NA, n_pops = NA, m = NA)
+n_pop <- seq(6, 30, by = 3)
+m <- 0.02
+run_simulation(n_pop, m, 1000, rat.n)
+rat.n <- rat
+rat.n
+```  
+  
+```{r m}
+rat.m <- data.frame(island = NA, step = NA, ratio = NA, n_pops = NA, m = NA)
+n_pop <- 10
+m <- seq(0.01, 0.1, by = 0.01)
+run_simulation(n_pop, m, 1000, rat.m)
+rat.m <- rat
+rat.m
+```
+  
+Usually working out a pattern quantitatively is preferable, but the patterns are so clear that plots will work nicely. I'll be plotting island TTC, step TTC, and ratios for each sequence of variations.
+  
+```{r plots, echo=FALSE}
+n <- ggplot(rat.n, aes(x = n_pops)) +
+  geom_point(aes(y=island, color = "red"), show.legend = T) +
+  geom_point(aes(y=step, color = "blue"), show.legend = T) + 
+  scale_color_manual(labels = c("island", "step"), values = c("red", "blue")) +
+  theme(legend.title = element_blank()) +
+  ylab("time")
+rn <- ggplot(rat.n, aes(x = n_pops, y = ratio)) +
+  geom_point(color = "black") +
+  ylab("ratio (island/step)")
+m <- ggplot(rat.m, aes(x = m, y = island)) + 
+  geom_point(aes(y=island, color = "red"), show.legend = T) +
+  geom_point(aes(y=step, color = "blue"), show.legend = T) + 
+  scale_color_manual(labels = c("island", "step"), values = c("red", "blue")) +
+  theme(legend.title = element_blank()) +
+  ylab("time")
+rm <- ggplot(rat.m, aes(x = m, y = ratio)) +
+  geom_point(color = "black") +
+  ylab("ratio (island/step)")
+n
+rn
+m
+rm
+```  
+  
+**Analysis** 
+  
+It appears that an increase in the number of populations rapidly increases TTC. In contrast, increasing migration rate rapidly decreases TTC. This makes sense, as both higher a n_pop and a lower migration rate imply a more structured metapopulation.  
+  
+Each model, however, responds to changes in either variable differently;  
+- While both models predict a lower TTC at lower n_pops, the island TTC is higher *in relation* to the step TTC (and vis versa).  
+- While both models predict a higher TTC at lower migration rates, the step TTC is lower *in relation* to the island TTC.  
+  
+These relationships made more sense once I considered why migration is different for each model. The island model will predict relatively lower TTCs at high migration and/or higher numbers of population because migration is going to be more impactful when any island can migrate to any other. A step model is going to be more "bogged down" by a higher number of islands because migration from any one island to any other is difficult.

@@ -1,0 +1,158 @@
+---
+title: "Population Genetics Homework - Week 5"
+author: "Christian Polania"
+date: "9/29/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+if (!require("pacman")) install.packages("pacman")
+library(pacman)
+p_load(tidyverse)
+p_load(knitr)
+p_load(devtools)
+p_load(tibble)
+p_load(peRspective)
+
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=3, fig.height=2)
+```
+
+```{r functions, include=FALSE}
+simulate <- function(n_f, n_m, p_0, n_samp, n_pop) {
+  x <- c(p_0^2, 2*p_0*(1-p_0), (1-p_0)^2)
+  p <- numeric(n_samp)
+  for (i in 1:n_samp) {
+    f <- numeric(n_f)
+    for (j in 1:n_f) {
+      tmp <- rmultinom(1, 1, x)
+      f[j] <- which(tmp[, 1] == 1)
+    }
+    m <- numeric(n_m)
+    for (j in 1:n_m) {
+      tmp <- rmultinom(1, 1, x)
+      m[j] <- which(tmp[, 1] == 1)
+    }
+    p[i] <- 0
+    for (j in 1:n_pop) {
+      p_f <- (sample(f, 1) - 1)/2
+      p_m <- (sample(m, 1) - 1)/2
+      p[i] <- p[i] + (p_f + p_m)/2
+    }
+    p[i] <- p[i]/n_pop
+  }
+  return(p)
+}
+
+run_simulation <- function(p_0, n_samp, n_pop, sim, df) {
+  dat <- data.frame(n_f = NA, n_m = NA, n_e = NA, n_e_obs = NA, 
+                    var_p = NA, var_p_obs = NA, NeD = NA, var_pD = NA)
+  for (n_f in c(5, 10, 25, 50, 100)) {
+    for (n_m in c(5, 10, 25, 50, 100)) {
+      p <- simulate(n_f = n_f, n_m = n_m, p_0 = 0.5, n_samp = n_samp, 
+                    n_pop = n_pop)
+      n_e <- 4.0*n_f*n_m/(n_f + n_m)
+      var_p <- p_0*(1 - p_0)/(2*n_e)
+      n_e_obs <- 0.5*0.5/(2*var(p))
+      dat <- add_row(dat, n_f = n_f, n_m = n_m, n_e = n_e, 
+                     n_e_obs = n_e_obs, var_p = var_p, 
+                     var_p_obs = var(p), NeD = (n_e - n_e_obs), var_pD = (var_p - var(p)))
+    }
+  }
+  dat <- subset(dat, !is.na(n_f))
+  
+  one <- mean(as.numeric(unlist(dat['NeD'])))
+  two <- var(as.numeric(unlist(dat['NeD'])))
+  three <- mean(as.numeric(unlist(dat['var_pD'])))
+  four <- var(as.numeric(unlist(dat['var_pD'])))
+  
+  df <- add_row(df, sim = sim, mean.diff.Ne = one, var.diff.Ne = two, mean.diff.varp = three, var.diff.varp = four)
+  df <- na.omit(df)
+  assign('df',df,envir=.GlobalEnv)
+    
+  p <- ggplot(dat, aes(x = n_e, y = n_e_obs)) +
+    geom_point() +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed",
+                color = "salmon") +
+    theme_bw() +
+    ggtitle(paste0("p_0 = ", p_0, "\n", "n_samp = ", n_samp, "\n", "n_pop = ", n_pop)) +
+    theme(plot.title = element_text(size = 9))
+  print(p)
+
+  p <- ggplot(dat, aes(x = var_p, y = var_p_obs)) +
+    geom_point() +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed",
+                color = "salmon") +
+    theme_bw() +
+    ggtitle(paste0("p_0 = ", p_0, "\n", "n_samp = ", n_samp, "\n", "n_pop = ", n_pop)) +
+    theme(plot.title = element_text(size = 9))
+  print(p)
+}
+```
+
+I modified the run_simulation function so that I could pull a few statistics from each run. I assume that they'll be informative, but we'll see.  
+- mean.diff.Ne: the mean of the differences between expected and observed Ne. Higher mean.diff.Ne means higher deviation from the expected Ne in one direction or another.  
+- var.diff.Ne: the variance of the differences between expected and observed Ne. Higher var.diff.Ne means less consistent simulations, with lower adherence to some imagined trendline.  
+- mean.diff.varp: same as the first, but for var(p).  
+- var.diff.varp: same as the second, but for var(p).  
+ 
+Here's the example simulation:
+
+```{r}
+# Original
+df <- data.frame(sim = NA, mean.diff.Ne = NA, var.diff.Ne = NA, mean.diff.varp = NA, var.diff.varp = NA)
+run_simulation(0.5,100,100,0,df)
+df
+```
+
+And here are 5 with a range of sample sizes (number of simulations). I expect lowering sample size won't affect how far off on average the observed is from the expected for either Ne or var(p), but it should mean a higher variance in both.
+
+```{r, echo=FALSE}
+# Test sample size
+df <- data.frame(sim = NA, mean.diff.Ne = NA, var.diff.Ne = NA, mean.diff.varp = NA, var.diff.varp = NA)
+run_simulation(0.5,10,100,1,df)
+run_simulation(0.5,50,100,2,df)
+run_simulation(0.5,100,100,3,df)
+run_simulation(0.5,200,100,4,df)
+run_simulation(0.5,1000,100,5,df)
+df
+
+```
+
+Looks like my prediction was ... okay? The variance in differences between varp_e and varp_o definitely lowered with more sampling, but the trend is less clear with Ne.
+ 
+Next is population size. A low population size will almost definitely mean a lower Ne than expected and a higher var(p) than expected, so mean.diff should be higher for both with a lower population size. The smaller a population, the stronger genetic drift is. A higher population size will result in consistency just like with sample size, so var.diff should be higher for both Ne and var(p) when population is low.
+
+```{r, echo=FALSE}
+# Test population size
+df <- data.frame(sim = NA, mean.diff.Ne = NA, var.diff.Ne = NA, mean.diff.varp = NA, var.diff.varp = NA)
+run_simulation(0.5,100,10,6,df)
+run_simulation(0.5,100,50,7,df)
+run_simulation(0.5,100,100,8,df)
+run_simulation(0.5,100,500,9,df)
+run_simulation(0.5,100,1000,10,df)
+df
+```
+
+Looks good! Lastly is starting allele frequency, which I'm not so sure about. I can imagine a very low or high starting allele frequency would result in a small var(p) (more simulations fixing at 0 or 1), but I can't imagine why it would be different for expected vs observed.
+
+```{r, echo=FALSE}
+# Test p_0
+df <- data.frame(sim = NA, mean.diff.Ne = NA, var.diff.Ne = NA, mean.diff.varp = NA, var.diff.varp = NA)
+run_simulation(0.01,100,100,11,df)
+run_simulation(0.1,100,100,12,df)
+run_simulation(0.5,100,100,13,df)
+run_simulation(0.9,100,100,14,df)
+run_simulation(0.99,100,100,15,df)
+df
+```
+Looks like a more extreme starting allele frequency means a higher mean.diff.varp and a higher var.diff.varp. In other words, a more extreme p_0 means that var(p) is consistently much higher than expected, and the degree to which it is high becomes less consistent.
+ 
+What I figure is that an extreme p_0 causes some simulations to fix at p=0 or p=1, but a sizable amount of simulations will escape fixation and trend towards the center. Compared to populations where most simulations stay comfortably near the center, that's a much higher var(p). I take it to mean this is a demonstration of the relevancy of genetic drift at extreme allele frequencies.  
+ 
+Based on explorations so far, it seems like a good match of observed and expected would result from a high sample size, a high population size, and a middle-of-the-road p_0. Here's a demonstration:
+
+```{r}
+df <- data.frame(sim = NA, mean.diff.Ne = NA, var.diff.Ne = NA, mean.diff.varp = NA, var.diff.varp = NA)
+run_simulation(0.5,500,500,0,df)
+```

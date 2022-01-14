@@ -1,0 +1,35 @@
+---
+title: "Population Genetics Homework - Week 1"
+author: "Christian Polania"
+date: "9/3/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse, quietly = T)
+library(knitr, quietly = T)
+library(formatR, quietly = T)
+opts_chunk$set(tidy=TRUE)
+dat <- read.csv(file = '/Users/Christian/Desktop/PopGen/Week1/isotoma.csv', header = TRUE)
+```
+
+```{r}
+# Question 1
+unique(dat$pop) %>% length()
+```
+
+```{r}
+# Question 2
+table(dat$pop)
+```
+
+```{r}
+# Question 3
+boo <- subset(dat, pop == "Boora")
+N <- table(boo$pop) %>% as.numeric()
+genotype.freq <- table(boo$GOT.1) %>% as.vector() %>% data.frame(row.names = c("AA","Aa","aa"))/N
+allele.freq <- c(2*genotype.freq[1,1] + genotype.freq[2,1], 2*genotype.freq[3,1] + genotype.freq[2,1])%>% data.frame(row.names = c("A","a"))/2
+genotype.freq
+allele.freq
+```

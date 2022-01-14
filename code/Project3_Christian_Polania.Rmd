@@ -1,0 +1,29 @@
+---
+title: "Population Genetics Homework - Week 11 (Project 3)"
+author: "Christian Polania"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+if (!require("pacman")) install.packages("pacman")
+library(pacman)
+p_load(tidyverse)
+p_load(knitr)
+p_load(devtools)
+p_load(ggplot2)
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1. A reduction in genomic variation (or a conservation of a lack of variation) can be explained by selection against any new differences. When the conserved sequence is compared against sequences that slightly modify the phenotypic effect of the gene, this is known as *stabilizing selection*. When the conserved sequence is compared against deleterious nonsense mutations, this is known as *purifying selection*.
+  
+2. *McVicker et al*'s basic conclusion is that selection is shaping the genome, but they're focusing on conserved sequences. If you focus on places where selection is dominant, you'd be likely to conclude that selection is generally dominant.
+  
+3. The nature of recombination results in sequences close to one another being inherited together. When most individuals who have a specific allele also have the same neutral sequence around it (like after a selective sweep), selection preserving the gene will also preserve the often-coinherited neutral surroundings. Thus, sites with no affect on phenotype that are further from conserved sequences will change neutrally over time, while those close to conserved sequences may be somewhat conserved along with them. 
+    
+4. The authors used their own program, gcons (based on PhastCons), that identifies conserved sequences by comparing aligned seauences and estimating the probability that those sequences would be as similar as they are without being conserved. Putative neutral sites were identified by finding sequences that were at least 10 bases away from any annotated exon and had gcons scores under -10.
+      
+5. I don't see too much of a difference between the paper's conclusions and your claims. The paper states that *"The overall trends are broadly consistent with ‘background selection’ or
+hitchhiking in ancestral populations acting to remove deleterious variants."*, and that *"the action of selection to remove less-fit functional variants from a population has significantly reduced the frequency of ‘neutral’ sequence differences at nearby sites."*  
+  This seems totally compatible with your statements about modified neutral theory. Both seem to agree with the idea that neutral theory has dominion over the genome outside of the stable zones that important genes engender. Both seem to agree that most selection is purifying, and that if selection is ever changing allele frequencies, it's happening quickly and not in a way that's relevant to speciation and the long-term evolutionary trends that many biologists are interested in.
+  

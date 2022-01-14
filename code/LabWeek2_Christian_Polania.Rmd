@@ -1,0 +1,55 @@
+---
+title: "Population Genetics Homework - Week 2"
+author: "Christian Polania"
+date: "9/5/2021"
+output: pdf_document
+---
+
+````{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if (!require("pacman")) install.packages("pacman")
+p_load(tidyverse)
+p_load(knitr)
+p_load(hierfstat)
+p_load(adegenet)
+opts_chunk$set(echo = TRUE)
+opts_chunk$set(tidy=TRUE)
+```
+
+```{r}
+# Question 1
+dat <- read.structure("http://darwin.eeb.uconn.edu/eeb348-resources/repens-outliers.stru", n.ind=662, n.loc=173, onerowperind=FALSE, col.lab=1, col.pop=2, row.marknames=1, ask=FALSE)
+wc(dat)
+dat <- genind2hierfstat(dat)
+ci <- boot.vc(dat[, 1], dat[, -1], diploid = TRUE)$ci[,c(2,5)]
+colnames(ci) <- c("Fst", "Fis")
+```
+
+```{r}
+# Question 1
+dat <- read.structure("http://darwin.eeb.uconn.edu/eeb348-resources/repens-outliers.stru", n.ind=662, n.loc=173, onerowperind=FALSE, col.lab=1, col.pop=2, row.marknames=1, ask=FALSE)
+wc(dat)
+dat <- genind2hierfstat(dat)
+ci <- boot.vc(dat[, 1], dat[, -1], diploid = TRUE)$ci[,c(2,5)]
+colnames(ci) <- c("Fst", "Fis")
+```
+
+```{r}
+# Question 1
+dat <- read.structure("http://darwin.eeb.uconn.edu/eeb348-resources/repens-outliers.stru", n.ind=662, n.loc=173, onerowperind=FALSE, col.lab=1, col.pop=2, row.marknames=1, ask=FALSE)
+wc(dat)
+dat <- genind2hierfstat(dat)
+ci <- boot.vc(dat[, 1], dat[, -1], diploid = TRUE)$ci[,c(2,5)]
+colnames(ci) <- c("Fst", "Fis")
+```
+
+```{r}
+# Question 1
+dat <- read.structure("http://darwin.eeb.uconn.edu/eeb348-resources/repens-outliers.stru", n.ind=662, n.loc=173, onerowperind=FALSE, col.lab=1, col.pop=2, row.marknames=1, ask=FALSE)
+wc(dat)
+dat <- genind2hierfstat(dat)
+ci <- boot.vc(dat[, 1], dat[, -1], diploid = TRUE)$ci[,c(2,5)]
+colnames(ci) <- c("Fst", "Fis")
+```
+
+

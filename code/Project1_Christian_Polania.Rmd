@@ -1,0 +1,143 @@
+---
+title: "Population Genetics Homework - Week 4 (Project 1)"
+author: "Christian Polania"
+date: "9/24/2021"
+output: pdf_document
+---
+
+````{r setup, include=FALSE}
+if (!require("pacman")) install.packages("pacman")
+library(pacman)
+p_load(tidyverse)
+p_load(ggplot2)
+p_load(knitr)
+p_load(adegenet)
+p_load(devtools)
+p_load(ggfortify)
+library("LEA")
+
+opts_chunk$set(echo=TRUE, tidy=TRUE, fig.width=4, fig.height=3)
+
+plot_dapc12 <- function(dat, x_num  = 1, y_num = 2) {
+  df_ind <- data.frame(dat$ind.coord)
+  df_ind$Location <- dat$grp
+  df_names <- colnames(df_ind)
+  p <- ggplot(df_ind, aes(x = df_ind[, x_num], 
+                          y = df_ind[, y_num], 
+                          color = Location)) +
+    geom_point() + 
+    scale_color_brewer(type = "qualitative", palette = "Set1") +
+    xlab(paste("Discriminant axis ", x_num, sep = "")) +
+    ylab(paste("Discriminant axis ", y_num, sep = "")) +
+    theme_bw()
+  p
+}
+
+plot_dapc13 <- function(dat, x_num  = 1, y_num = 3) {
+  df_ind <- data.frame(dat$ind.coord)
+  df_ind$Location <- dat$grp
+  df_names <- colnames(df_ind)
+  p <- ggplot(df_ind, aes(x = df_ind[, x_num], 
+                          y = df_ind[, y_num], 
+                          color = Location)) +
+    geom_point() + 
+    scale_color_brewer(type = "qualitative", palette = "Set1") +
+    xlab(paste("Discriminant axis ", x_num, sep = "")) +
+    ylab(paste("Discriminant axis ", y_num, sep = "")) +
+    theme_bw()
+  p
+}
+
+plot_dapc23 <- function(dat, x_num  = 2, y_num = 3) {
+  df_ind <- data.frame(dat$ind.coord)
+  df_ind$Location <- dat$grp
+  df_names <- colnames(df_ind)
+  p <- ggplot(df_ind, aes(x = df_ind[, x_num], 
+                          y = df_ind[, y_num], 
+                          color = Location)) +
+    geom_point() + 
+    scale_color_brewer(type = "qualitative", palette = "Set1") +
+    xlab(paste("Discriminant axis ", x_num, sep = "")) +
+    ylab(paste("Discriminant axis ", y_num, sep = "")) +
+    theme_bw()
+  p
+}
+```
+
+**PCA**
+\
+```{r,fig.align='center'}
+#PCA
+gila <- read.structure("http://darwin.eeb.uconn.edu/eeb348-resources/gila-trout.stru", n.ind=154, n.loc=2381, onerowperind=FALSE, col.lab=3, col.pop=1, row.marknames=0, col.others=2, ask=FALSE, quiet=TRUE)
+gila_mod <- tab(gila, freq = TRUE, NA.method = "mean")
+gila_df <- data.frame(Population = pop(gila))
+gila_pca <- prcomp(gila_mod)
+autoplot(gila_pca, data = gila_df, colour = "Population",
+         frame.type = "norm") + 
+  theme_bw()
+gila_sum <- summary(gila_pca)
+gila_sum$importance[,"PC88"]
+```
+
+\begin{center}
+\includegraphics{R.PC}
+\end{center}
+\
+```{r,fig.align='center'}
+```
+I retained the minimum number of PCAs that explain at least 90% of the variance, which is 88.
+\
+\
+\
+\begin{center}
+\includegraphics{R.clust}
+\end{center}
+\
+Five clusters looks to be at the "knee" of the curve, and has a BIC very close to the minimum.
+\
+\
+\
+\
+\
+\
+\
+**DAPC**
+\
+\
+\
+\begin{center}
+\includegraphics{R.det}
+\end{center}
+\
+The largest break between numbers of determinant functions seems to be between three and four, so three was selected.
+
+```{r,fig.align='center'}
+gila_dapc <- dapc(gila, pop = pop(gila), n.pca = 88, n.da=3)
+plot_dapc12(gila_dapc)
+plot_dapc13(gila_dapc)
+plot_dapc23(gila_dapc)
+moved <- data.frame(Initial = gila_dapc$grp,
+                      Final = gila_dapc$assign) %>%
+  filter(Initial != Final)
+moved
+```
+\
+\
+\
+\
+\
+**Question 2: Comparison of Methods**
+\
+LEA suggested that the population at "Iron" may be more structured than the other sites, with two *relatively* dissimilar subpopulations. Also, some admixture was seen between "Main" and "South". The results from DAPC seem to suggest that all five sampling sites are genetically distinct from each other to an extent that overshadows any admixture between sites or genetic structure within sites; There's no overlap between clusters, and no individuals were moved from any cluster. In other words, each of the sampling sites seems to represent a single population, despite the possibilities that LEA brought up.
+\
+\
+\
+**Question 3: Possibility of Population Bottlenecks**
+\
+Population bottlenecks leading to significant genetic drift would result in populations that are less similar to each other than their geographic proximity would suggest. Since our geographically-connected populations don't seem to be much more similar to each other than to the other populations, it would fit that there has been recent mortality caused by harsh environmental conditions.
+\
+\
+\
+**Question 4: Comparison of Results**
+\
+LEA certainly suggests that the two populations that are closest to each other ("Main" and "South") may be more similar to each other. Although DAPC shows that there would be no confusing which population an unknown sample would be from, the "Main" and "South" clusters are the second closest to each other on every one of the three determinant axes used. I would say that the geographical distribution of the populations is consistent with these analyses to a small extent.

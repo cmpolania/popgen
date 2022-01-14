@@ -1,0 +1,79 @@
+---
+title: "Population Genetics Homework - Week 12"
+author: "Christian Polania"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+if (!require("pacman")) install.packages("pacman")
+library(pacman)
+p_load(tidyverse)
+p_load(knitr)
+p_load(devtools)
+p_load(ggplot2)
+p_load(rstanarm)
+
+knitr::opts_chunk$set(echo = TRUE)
+
+greenhouse <- read_csv("/Users/Christian/Desktop/Protea_greenhouse.csv") %>%
+  mutate(mom_id = as.factor(paste(species, mom_id, sep = "")))
+```
+
+```{r functions, include=FALSE}
+heritability <- function(fit, dat) {
+  dat_sum <- dat %>%
+    group_by(mom_id) %>%
+    summarize(count = n())
+  n_off <- mean(dat_sum$count)
+  df <- as.data.frame(fit)
+  sigma_hs <- df$`Sigma[mom_id:(Intercept),(Intercept)]`
+  sigma_w <- df$sigma
+  h_2 = sigma_hs*n_off/(sigma_hs*n_off + sigma_w^2)
+  h_2_df <- tibble(Mean = mean(h_2),
+                   lo = quantile(h_2, 0.05),
+                   hi = quantile(h_2, 0.95))
+  return(h_2_df)
+}
+```
+
+First, analyses:
+
+```{r analyses}
+ven <- subset(greenhouse, species == "venusta")
+pun <- subset(greenhouse, species == "punctata")
+
+plma <- stan_glmer(lma ~ (1|mom_id), data = pun, refresh = 0)
+pfwc <- stan_glmer(fwc ~ (1|mom_id), data = pun, refresh = 0)
+plwr <- stan_glmer(lwr ~ (1|mom_id), data = pun, refresh = 0)
+vlma <- stan_glmer(lma ~ (1|mom_id), data = ven, refresh = 0)
+vfwc <- stan_glmer(fwc ~ (1|mom_id), data = ven, refresh = 0)
+vlwr <- stan_glmer(lwr ~ (1|mom_id), data = ven, refresh = 0)
+```
+
+Then a summary of heritabilities:
+
+```{r summaries}
+herit <- data.frame(mean = NA, lo = NA, hi = NA)
+
+hplma <- heritability(plma, pun)
+hpfwc <- heritability(pfwc, pun)
+hplwr <- heritability(plwr, pun)
+hvlma <- heritability(vlma, ven)
+hvfwc <- heritability(vfwc, ven)
+hvlwr <- heritability(vlwr, ven)
+
+herit <-add_row(herit, mean = hplma$Mean, lo = hplma$lo, hi = hplma$hi)
+herit <-add_row(herit, mean = hpfwc$Mean, lo = hpfwc$lo, hi = hpfwc$hi)
+herit <-add_row(herit, mean = hplwr$Mean, lo = hplwr$lo, hi = hplwr$hi)
+herit <-add_row(herit, mean = hvlma$Mean, lo = hvlma$lo, hi = hvlma$hi)
+herit <-add_row(herit, mean = hvfwc$Mean, lo = hvfwc$lo, hi = hvfwc$hi)
+herit <-add_row(herit, mean = hvlwr$Mean, lo = hvlwr$lo, hi = hvlwr$hi)
+
+herit <- na.omit(herit)
+rownames <- c("p.lma", "p.fwc", "p.lwr", "v.lma","v.fwc", "v.lwr")
+row.names(herit) <- rownames
+
+herit
+````
+
+*Protea punctata* seems to have the same moderate heritability across the board: about a third of phenotypic variation in each of the three studied traits can be explained by genetic variation. *Protea venusta* has lower heritability for leaf mass per area and fresh water content, but has unusually high heritability for leaf length-width ratio.

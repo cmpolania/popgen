@@ -1,0 +1,171 @@
+---
+title: "Population Genetics Homework - Week 14"
+author: "Christian Polania"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+if (!require("pacman")) install.packages("pacman")
+library(pacman)
+p_load(tidyverse)
+p_load(knitr)
+p_load(devtools)
+p_load(ggplot2)
+p_load(brms)
+p_load(popkin)
+p_load(texreg)
+
+knitr::opts_chunk$set(echo = TRUE)
+options(mc.cores = parallel::detectCores())
+```
+
+```{r data, include = FALSE}
+dat <- read_csv("/Users/Christian/Desktop/gypsymoth.csv")
+rel <- read_tsv("/Users/Christian/Desktop/gypsymoth_relatedness_for_brms.txt",
+              show_col_types = FALSE)
+```
+
+Just to remind both you and myself: I'm using the pre-analyzed data provided with Lab 13, and you can let me know if you'd prefer that I run the rstan code myself once I have more processing power.
+
+1. All three analyses (for Mass, PD, and TDT) are below. Shown are parameters, plots, and R^2 estimates.  
+
+```{r Mass, echo = T, results = 'hide', comment = FALSE, warning = FALSE, message = FALSE}
+fit_Mass <- brm(Mass ~ X34862 + X29507 + X44522 + X40856 + X89362 + X65887 + X36978 + 
+                  X89363 + X89364 + X17757 + (1|gr(sample, cov = rel)),
+                data = dat,
+                family = gaussian(),
+                set_prior(horseshoe(df = 3, par_ratio = 0.5)),
+                data2 = list(rel = rel),
+                iter = 5000,
+                refresh = 0) 
+```
+
+```{r, Mass sum, comment = NA}
+fixef(fit_Mass, summary = TRUE)
+```
+
+```{r Mass plot, echo = FALSE, comment = NA, fig.width = 8, fig.height = 4.5}
+predicted_Mass <- predict(fit_Mass)
+predict_Mass_reduced <- predict(fit_Mass, re_formula = NA)
+
+for_plot <- tibble(Predicted = c(predicted_Mass[, "Estimate"],
+                                 predict_Mass_reduced[, "Estimate"]),
+                   Observed = c(dat$Mass,
+                                dat$Mass),
+                   Source = c(rep("With Relatedness", nrow(dat)), 
+                               rep("Without Relatedness", nrow(dat)))
+                   )
+p <- ggplot(for_plot, aes(x = Predicted, y = Observed)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "red", 
+              linetype = "dashed") +
+  theme_bw() +
+  facet_wrap(~ Source)
+p
+
+RMass1 <- bayes_R2(fit_Mass)
+RMass2 <- bayes_R2(fit_Mass, re_formula = NA)
+RMass <- data.frame("R2" = RMass1[1,1], "error" = RMass1[1,2], "Q2.5" = RMass1[1,3], "Q97.5" = RMass1[1,4])
+RMass <- add_row(RMass, "R2" = RMass2[1,1], "error" = RMass2[1,2], "Q2.5" = RMass2[1,3], "Q97.5" = RMass2[1,4])
+RMass <- add_row(RMass, "R2" = RMass2[1,1]/RMass1[1,1], "error" = RMass2[1,2]/RMass1[1,2], "Q2.5" = NA, "Q97.5" = NA)
+row.names(RMass) <- c("with relatedness","without relatedness","ratio")
+RMass
+```
+
+```{r PD, echo = T, results = 'hide', comment = FALSE, warning = FALSE, message = FALSE}
+fit_PD <- brm(PD ~ X10472 + X66820 + X13105 + X79056 + X86539 + X86541 + X86543 + 
+                X86542 + X82900 + X21382 + (1|gr(sample, cov = rel)),
+                data = dat,
+                family = gaussian(),
+                set_prior(horseshoe(df = 3, par_ratio = 0.5)),
+                data2 = list(rel = rel),
+                iter = 5000,
+                refresh = 0) 
+```
+
+```{r, PD sum, comment = NA}
+fixef(fit_PD, summary = TRUE)
+```
+
+```{r PD plot, echo = FALSE, comment = NA, fig.width = 8, fig.height = 4.5}
+predicted_PD <- predict(fit_PD)
+predict_PD_reduced <- predict(fit_PD, re_formula = NA)
+
+for_plot <- tibble(Predicted = c(predicted_PD[, "Estimate"],
+                                 predict_PD_reduced[, "Estimate"]),
+                   Observed = c(dat$PD,
+                                dat$PD),
+                   Source = c(rep("With Relatedness", nrow(dat)), 
+                               rep("Without Relatedness", nrow(dat)))
+                   )
+p <- ggplot(for_plot, aes(x = Predicted, y = Observed)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "red", 
+              linetype = "dashed") +
+  theme_bw() +
+  facet_wrap(~ Source)
+p
+
+RPD1 <- bayes_R2(fit_PD)
+RPD2 <- bayes_R2(fit_PD, re_formula = NA)
+RPD <- data.frame("R2" = RPD1[1,1], "error" = RPD1[1,2], "Q2.5" = RPD1[1,3], "Q97.5" = RPD1[1,4])
+RPD <- add_row(RPD, "R2" = RPD2[1,1], "error" = RPD2[1,2], "Q2.5" = RPD2[1,3], "Q97.5" = RPD2[1,4])
+RPD <- add_row(RPD, "R2" = RPD2[1,1]/RPD1[1,1], "error" = RPD2[1,2]/RPD1[1,2], "Q2.5" = NA, "Q97.5" = NA)
+row.names(RPD) <- c("with relatedness","without relatedness","ratio")
+RPD
+```
+
+```{r TDT, echo = T, results = 'hide', comment = FALSE, warning = FALSE, message = FALSE}
+fit_TDT <- brm(TDT ~ X4612 + X36978 + X16239 + X71727 + X16238 + X54640 + X54640 + 
+                 X44522 + X65887 + X86539 + (1|gr(sample, cov = rel)),
+                data = dat,
+                family = gaussian(),
+                set_prior(horseshoe(df = 3, par_ratio = 0.5)),
+                data2 = list(rel = rel),
+                iter = 5000,
+                refresh = 0)
+```
+
+```{r, TDT sum, comment = NA}
+fixef(fit_TDT, summary = TRUE)
+```
+
+```{r TDT plot, echo = FALSE, comment = NA, fig.width = 8, fig.height = 4.5}
+predicted_TDT <- predict(fit_TDT)
+predict_TDT_reduced <- predict(fit_TDT, re_formula = NA)
+
+for_plot <- tibble(Predicted = c(predicted_TDT[, "Estimate"],
+                                 predict_TDT_reduced[, "Estimate"]),
+                   Observed = c(dat$TDT,
+                                dat$TDT),
+                   Source = c(rep("With Relatedness", nrow(dat)), 
+                               rep("Without Relatedness", nrow(dat)))
+                   )
+p <- ggplot(for_plot, aes(x = Predicted, y = Observed)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "red", 
+              linetype = "dashed") +
+  theme_bw() +
+  facet_wrap(~ Source)
+p
+
+RTDT1 <- bayes_R2(fit_TDT)
+RTDT2 <- bayes_R2(fit_TDT, re_formula = NA)
+RTDT <- data.frame("R2" = RTDT1[1,1], "error" = RTDT1[1,2], "Q2.5" = RTDT1[1,3], "Q97.5" = RTDT1[1,4])
+RTDT <- add_row(RTDT, "R2" = RTDT2[1,1], "error" = RTDT2[1,2], "Q2.5" = RTDT2[1,3], "Q97.5" = RTDT2[1,4])
+RTDT <- add_row(RTDT, "R2" = RTDT2[1,1]/RTDT1[1,1], "error" = RTDT2[1,2]/RTDT1[1,2], "Q2.5" = NA, "Q97.5" = NA)
+row.names(RTDT) <- c("with relatedness","without relatedness","ratio")
+RTDT
+```
+  
+2. Including the relatedness data, the first ten loci account for a sizable proportion of the variation in each trait.  
+- Mass: 22.4%  
+- PD: 16.2%  
+- TDT: 31.0%  
+  
+3. Excluding relatedness, the explanatory power of ten loci from TDT seems higher than that of the other two traits. Adding relatedness helps each trait about equally, except for PD.  
+  
+4. By including a relatedness matrix, one is solving the problem of the similarity of two related genomes; that is, two related moths will be similar in trait and similar at most loci, but that doesn't mean that every locus that's similar between the two is contributing to the trait.  
+  My guess for why that can go wrong: considering will trade one problem for another: the way that the sampled population is unique in comparison to other populations will be confounded with genotype-phenotype association. This should be there anyways, but maybe accounting for individual relatedness amplifies that larger-scale problem? All I know for sure is that sampling aacross as many populations as possible would solve it either way.
+
+  

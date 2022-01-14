@@ -1,0 +1,89 @@
+---
+title: "Population Genetics Homework - Week 10"
+author: "Christian Polania"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+if (!require("pacman")) install.packages("pacman")
+library(pacman)
+p_load(tidyverse)
+p_load(knitr)
+p_load(devtools)
+p_load(ggplot2)
+p_load(adegenet)
+p_load(pegas)
+p_load(tibble)
+
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(comment = NA)
+```
+
+```{r download, include = FALSE}
+p_cco <- read.dna("/Users/Christian/Desktop/Pinus-taeda-ccoaomt-1.fasta", format = "fasta")
+pc_cco <- read.dna("/Users/Christian/Desktop/Pinus-taeda-ccoaomt-1-coding.fasta", format = "fasta")
+p_cpk <- read.dna("/Users/Christian/Desktop/Pinus-taeda-cpk3.fasta", format = "fasta")
+pc_cpk <- read.dna("/Users/Christian/Desktop/Pinus-taeda-cpk3-coding.fasta", format = "fasta")
+p_erd <- read.dna("/Users/Christian/Desktop/Pinus-taeda-erd3.fasta", format = "fasta")
+pc_erd <- read.dna("/Users/Christian/Desktop/Pinus-taeda-erd3-coding.fasta", format = "fasta")
+p_pp2 <- read.dna("/Users/Christian/Desktop/Pinus-taeda-pp2c.fasta", format = "fasta")
+pc_pp2 <- read.dna("/Users/Christian/Desktop/Pinus-taeda-pp2c-coding.fasta", format = "fasta")
+```
+
+First we'll start with estimating Tajima's D in the complete sequences:
+
+```{r test complete, echo = FALSE}
+complete <- data.frame("D" = NA, "Pval.normal" = NA, "Pval.beta" = NA)
+
+pinus_cco <- tajima.test(p_cco)
+complete <- add_row(complete, "D" = as.numeric(pinus_cco[1]), "Pval.normal" = as.numeric(pinus_cco[2]), "Pval.beta" = as.numeric(pinus_cco[3]))
+pinus_cpk <- tajima.test(p_cpk)
+complete <- add_row(complete, "D" = as.numeric(pinus_cpk[1]), "Pval.normal" = as.numeric(pinus_cpk[2]), "Pval.beta" = as.numeric(pinus_cpk[3]))
+pinus_erd <- tajima.test(p_erd)
+complete <- add_row(complete, "D" = as.numeric(pinus_erd[1]), "Pval.normal" = as.numeric(pinus_erd[2]), "Pval.beta" = as.numeric(pinus_erd[3]))
+pinus_pp2 <- tajima.test(p_pp2)
+complete <- add_row(complete, "D" = as.numeric(pinus_pp2[1]), "Pval.normal" = as.numeric(pinus_pp2[2]), "Pval.beta" = as.numeric(pinus_pp2[3]))
+complete <- na.omit(complete)
+complete.r <- c("cco", "cpk", "erd", "pp2")
+row.names(complete) <- complete.r
+knitr::kable(complete)
+```
+And now only the coding sequences:
+  
+```{r test coding, echo = FALSE}
+coding <- data.frame("D" = NA, "Pval.normal" = NA, "Pval.beta" = NA)
+
+pinusc_cco <- tajima.test(pc_cco)
+coding <- add_row(coding, "D" = as.numeric(pinusc_cco[1]), "Pval.normal" = as.numeric(pinusc_cco[2]), "Pval.beta" = as.numeric(pinusc_cco[3]))
+pinusc_cpk <- tajima.test(pc_cpk)
+coding <- add_row(coding, "D" = as.numeric(pinusc_cpk[1]), "Pval.normal" = as.numeric(pinusc_cpk[2]), "Pval.beta" = as.numeric(pinusc_cpk[3]))
+pinusc_erd <- tajima.test(pc_erd)
+coding <- add_row(coding, "D" = as.numeric(pinusc_erd[1]), "Pval.normal" = as.numeric(pinusc_erd[2]), "Pval.beta" = as.numeric(pinusc_erd[3]))
+pinusc_pp2 <- tajima.test(pc_pp2)
+coding <- add_row(coding, "D" = as.numeric(pinusc_pp2[1]), "Pval.normal" = as.numeric(pinusc_pp2[2]), "Pval.beta" = as.numeric(pinusc_pp2[3]))
+coding <- na.omit(coding)
+coding.r <- c("cco", "cpk", "erd", "pp2")
+row.names(coding) <- coding.r
+knitr::kable(coding)
+```
+  
+1. Considering the complete sequences, it seems that: 
+- *ccoamt1* is likely to be evolving neutrally.  
+- *cpk3* is almost certainly evolving neutrally.  
+- *erd3* is almost certainly not evolving neutrally, suggesting a population expansion, bottleneck or selective sweep.  
+- *pp2c* is almost certainly not evolving neutrally, suggesting a population expansion, bottleneck, or selective sweep.  
+<p>&nbsp;</p>  
+    
+    
+2. Considering the coding sequences, it seems that: 
+- *ccoamt1* now seems to be evolving, possibly due to a population contraction or balancing selection.  
+- *cpk3* is **still** probably evolving neutrally.  
+- *erd3* is still likely not evolving neutrally, but with less certainty than before.  
+- *pp2c* is **still** almost certainly not evolving neutrally.  
+<p>&nbsp;</p>  
+  
+3. Removing the possibility of population expansion or contraction, there are two patterns of selection suggested by the data:
+- *ccoamt1*'s coding sequence has few rare alleles, implying strong selection for one or a few alleles (ie either directional or balancing selection).
+- *erd3* and *pp2c* both have an excess of rare alleles, implying a recent selective sleep. Both rare lineages that "escaped" the sweep and recent mutation in swept genes can cause rare alleles to be more common than expected from neutral evolution.  
+  
+Either kind of selection could be an indication of importance in drought response, as both suggest relatively strong selection.

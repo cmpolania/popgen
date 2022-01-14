@@ -1,0 +1,130 @@
+---
+title: "Population Genetics Homework - Week 13"
+author: "Christian Polania"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+if (!require("pacman")) install.packages("pacman")
+library(pacman)
+p_load(tidyverse)
+p_load(knitr)
+p_load(devtools)
+p_load(ggplot2)
+p_load(rstan)
+
+options(mc.cores = parallel::detectCores())
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r function, include = FALSE}
+analyze_trait <- function(dat, L, trait, n_loci = NA) {
+  dat <- as.data.frame(read_csv("/Users/Christian/Desktop/gypsymoth.csv", show_col_types = FALSE))
+  L <- as.data.frame(read_csv("/Users/Christian/Desktop/gypsymoth_relatedness.csv", show_col_types = FALSE))
+
+  if (is.na(n_loci)) {
+    n_loci <- ncol(dat) - 5
+  }
+  n_chains <- 4
+  n_iter <- 5000
+  n_samples <- n_iter*n_chains
+  p <- matrix(nrow = n_loci, ncol = n_samples)
+  mean_p <- numeric(n_loci)
+  mu <- array(dim = c(n_loci, n_samples, nrow(dat)))
+  for (i in 1:n_loci) {
+    cat("Checking locus ", i, "\n", sep = "")
+    stan_data <- list(n_indiv = nrow(dat),
+                      geno = dat[, i+5],
+                      pheno = dat[[trait]],
+                      L = L)
+    stan_pars <- c("p", "mu")
+    fit <- stan("/Users/Christian/Desktop/gwas.stan",
+                data = stan_data,
+                pars = stan_pars,
+                iter = n_iter,
+                chains = n_chains,
+                refresh = 0)
+    x <- as.data.frame(fit)
+    p[i,] <- x$p
+    mean_p[i] <- mean(x$p)
+  }
+  loci <- data.frame(locus = colnames(dat)[(1:n_loci) + 5],
+                     p_mean = mean_p)
+  loci <- loci[order(abs(loci$p_mean), decreasing = TRUE), ]
+  rownames(p) <- loci$locus
+  return(list(loci = loci, p = p))
+}
+
+summarize_analysis <- function(results, n_report = 20) {
+  if (n_report > nrow(results$loci)) {
+    n_report <- nrow(results$loci)
+  }
+  cat("Mean: (2.5%, 10%, 50%, 90%, 97.5%)\n")
+  for (i in 1:n_report) {
+    ci <- quantile(results$p[results$loci$locus[i], ],
+                   c(0.025, 0.1, 0.5, 0.9, 0.975))
+    output <- sprintf("%6s: %8.5f (%8.5f, %8.5f, %8.5f, %8.5f, %8.5f)\n",
+                      results$loci$locus[i],
+                      results$loci$p_mean[i],
+                      ci[1], ci[2], ci[3], ci[4], ci[5])
+    cat(output)
+  }
+}
+```
+
+With the provided function defined and the relevant data downloaded, we'll run the function for each of the three traits (mass, pupal development time, total development time).
+
+```{r mass}
+# results <- analyze_trait(dat, L, "Mass")
+# summarize_analysis(results)
+```
+
+```{r pupal development time}
+# results <- analyze_trait(dat, L, "PD")
+# summarize_analysis(results)
+```
+
+```{r total development time}
+# results <- analyze_trait(dat, L, "TDT")
+# summarize_analysis(results)
+```
+
+I got the stan file to run using my laptop it would have taken most of a day to go through 218 loci for all three traits. Since I wanted to use all loci, I went ahead and answered the questions with the pre-analyzed data that you provided the class (shown at the end of the assignment, for your reference). If you'd prefer, I can run the code on my desktop when I get back to Storrs on the 12th.  
+  
+  
+1. After ordering the loci by median, I looked at which loci had 95% and/or 80% confidence intervals that were wholly positive. I included loci that were just barely below the cutoff (not very scientific, but I was curious). With close to 80% or more of the estimations being above 0, each of these traits seem likely to have an impact on their respective phenotypes.
+  
+```{r, echo = FALSE, comment = NA}
+place <- data.frame("Trait" = "Mass", "Locus" = "X89362", "positive.95" = "no", "positive.80" = "yes")
+place <- add_row(place, "Trait" = "Mass", "Locus" = "X65931", "positive.95" = "no", "positive.80" = "no")
+place <- add_row(place, "Trait" = "Mass", "Locus" = "X89364", "positive.95" = "no", "positive.80" = "no")
+place <- add_row(place,"Trait" = "PD", "Locus" = "X37710", "positive.95" = "yes", "positive.80" = "yes")
+place <- add_row(place,"Trait" = "PD", "Locus" = "X86543", "positive.95" = "no", "positive.80" = "yes")
+place <- add_row(place,"Trait" = "PD", "Locus" = "X86539", "positive.95" = "no", "positive.80" = "no")
+place <- add_row(place,"Trait" = "TDT", "Locus" = "X54640", "positive.95" = "yes", "positive.80" = "yes")
+place <- add_row(place,"Trait" = "TDT", "Locus" = "X29507", "positive.95" = "no", "positive.80" = "no")
+place
+```
+  
+2. None of the likely-impactful loci are shared between any of the three traits, but there was some overlap when considering the loci with the highest 20 medians. 3 were shared between mass and TDT, and 4 were shared between PD and TDT. A single locus was shared between mass and PD, but the relevant medians are so low that it's probably not worth considering.  
+  When looking for patterns, I got excited when I saw that all 4 loci shared between PD and TDT were very close to each other in chromosomal space, and that 3 of the 4 were in the top 10 loci by median for both traits. My first assumption was that one gene had a large impact on both traits through pleiotropy, until I realized that PD (pupal development time) and TDT (total development time) are always going to be related since one is a function of the other (TDT = PD + all other development time).
+    
+3. Although mass and PD didn't have any indication of a relationship, there were 3 shared loci between TDT and mass. It seems logical that total development time would increase if a higher mass was selected for, since extra growth takes extra time. It also makes sense that mass would be related to TDT and not PD, since any extra growth is going to happen at the end of development. It's easy to imagine that loci like these could be in genes that control when development should end, therefore having an impact on both traits.  After looking at the means of magnitudes for the loci (shown below), it looks like all three loci indeed impact both traits in the same direction (mass up = TDT up, mass down = TDT down).
+```{r, echo = FALSE, comment = NA}
+rel <- data.frame("Locus" = "X36978", "magnitude.mass" = 0.01515, "magnitude.TDT" = 1.46034, "median.mass" = 0.0053, median.TDT = -0.86659)
+rel <- add_row(rel, "Locus" = "X44522", "magnitude.mass" = -0.01643, "magnitude.TDT" = -1.30139, "median.mass" = -0.00878, median.TDT = 0.49298)
+rel <- add_row(rel, "Locus" = "X29507", "magnitude.mass" = -0.01804, "magnitude.TDT" = -1.13854, "median.mass" = -0.00922, median.TDT = 0.85798)
+rel
+```
+  
+---
+  
+```{r, echo = FALSE}
+include_graphics("/Users/Christian/Desktop/Mass.png")
+```
+---
+```{r, echo = FALSE}
+include_graphics("/Users/Christian/Desktop/PD.png")
+include_graphics("/Users/Christian/Desktop/TDT.png")
+```  
+  

@@ -1,0 +1,84 @@
+---
+title: "Population Genetics Homework - Week 9"
+author: "Christian Polania"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+if (!require("pacman")) install.packages("pacman")
+library(pacman)
+p_load(tidyverse)
+p_load(knitr)
+p_load(devtools)
+p_load(ape)
+p_load(phyclust)
+p_load(ggplot2)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r functions, include=FALSE}
+compare_coalescent <- function(tree, n_reps = 5000) {
+  n_taxa <- length(tree$tip.label)
+  coal_times <- matrix(nrow = n_reps, ncol = n_taxa - 1)
+  for (i in 1:n_reps) {
+    ms_out <- ms(nsam = n_taxa, opts = "-T")
+    ms_tree <- read.tree(text = ms_out)
+    coal_times[i, ] <- branching.times(ms_tree)
+    coal_times[i, ] <- sort(coal_times[i, ], decreasing = TRUE)
+    for (j in 1:(n_taxa - 1)) {
+      coal_times[i, j] <- coal_times[i, j]/coal_times[i, 1]
+    }
+  }
+  max_time <- max(branching.times(tree))
+  observed <- sort(branching.times(tree), decreasing = TRUE)
+  observed <- observed/max_time
+  result <- data.frame(Observed = observed,
+                       Expected = apply(coal_times, 2, mean),
+                       Lower_2.5 = apply(coal_times, 2, quantile, 0.025),
+                       Upper_97.5 = apply(coal_times, 2, quantile, 0.975))
+  return(result)
+}
+```
+
+```{r tree location, include = FALSE}
+sig_bayes <- read.nexus("/Users/Christian/Desktop/sRNase.clock.con.tre")
+```
+
+First, compare the expected and observed times to coalescense in the Solanaceae tree, normalize them, and plot them against each other:
+
+```{r comparison, results = 'hide'}
+result <- compare_coalescent(sig_bayes)
+```
+
+```{r plot, fig.width = 8, fig.height = 4.5}
+p <- ggplot(result, aes(x = Expected, y = Observed)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = Lower_2.5, xmax = Upper_97.5, width = 0.02)) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", 
+              color = "red") +
+  theme_bw()
+p
+```
+  
+  
+   
+  
+  
+  
+1. There's a clearly different pattern compared to the example ADH plot. The times to coalescence are observed to be consistently higher than expected. The earlier observed times (representing the first branches since the last common ancestor of Solanaceae) seem to be drastically higher, with the later branching events approaching expectations. I'm guessing that the "observed" tree would look much "fuller", with a relatively small amount of branches very early on, a moderate amount in the middle, and many branches right at the end. Comparatively, the "expected" tree should be almost completely branched near the terminal end. I'll take a look now:
+  
+```{r, echo = FALSE, fig.width = 8, fig.height = 4}
+plot(sig_bayes, show.tip.label = FALSE)
+title(main="Observed")
+
+```
+```{r,echo = FALSE, fig.width = 8, fig.height = 4}
+n_taxa <- length(sig_bayes$tip.label)
+ms_out <- ms(nsam = n_taxa, opts = "-T")
+ms_tree <- read.tree(text = ms_out)
+plot(ms_tree, show.tip.label = FALSE)
+title(main="Expected")
+```
+
+2. After reading, it seems that Richman and Kohn also found that the data supported earlier diversification than expected. Their explanation is centered around the concept of frequency-dependent selection. A self-compatibility gene is going to encourage strong and quick diversification, since individuals with a rare self-compatibility allele will outcompete any neighbors. This selection will affect the times to coalescense enough to make the ms() tree (which is ignorant of both sequence data and selection) dissimilar to reality.  
+  This established diversity will eventually be maintained by genetic drift. This effect differs with respect to population size, which in turn differs with respect to life history, which seems to be the point of Richman and Kohn's paper. Ignoring specifics, however, the drive for increased diversity in self-incompatibility alleles weakens and eventually matches the tendency for genetic drift to prune rare alleles. Thus, diversity is quickly acheived and then maintained in equilibrium; this explains the early branching and long tips observed. 
